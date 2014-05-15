@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import mechanize
 import cookielib
 from bs4 import BeautifulSoup
@@ -15,6 +17,9 @@ class Error(Exception):
 class LoginError(Error):
     pass
 
+class ParseError(Error):
+    pass
+
 
 def login_required(func):
     """
@@ -30,6 +35,7 @@ def login_required(func):
 
 class Account(object):
     login_cookie_name = '.ASPXFORMSAUTH'
+    card_selection_event_target = 'ctl00$ctl00$ContentPlaceHolder1$TabContainer2$MyCardsTabPanel$ddlMyCardsList'
 
     def __init__(self, username=None, password=None):
         self.username = username
@@ -95,7 +101,6 @@ class Account(object):
         the form {card_id: {card details}}.
         """
         url = BASE_URL + "/en/SelfServices/CardServices/CardOverView.aspx"
-        event_target = 'ctl00$ctl00$ContentPlaceHolder1$TabContainer2$MyCardsTabPanel$ddlMyCardsList'
 
         self.br.open(url)
         soup = BeautifulSoup(self.br.response().read())
@@ -109,59 +114,41 @@ class Account(object):
             else:
                 self.br.select_form(nr=0)
                 self.br.set_all_readonly(False)
-                self.br["__EVENTTARGET"] = event_target
-                self.br[event_target] = [card_id]
+                self.br["__EVENTTARGET"] = self.card_selection_event_target
+                self.br[self.card_selection_event_target] = [card_id]
                 self.br.submit()
                 soup = BeautifulSoup(self.br.response().read())
                 cards[card_id] = self._card_overview(soup)
 
         return cards
 
+    @login_required
     def card_history(self, card_id):
         """Returns a list of all the journeys for a specific card."""
 
         url = BASE_URL + "/en/SelfServices/CardServices/ViewJourneyHistory.aspx"
-        import ipdb; ipdb.set_trace()
-        cardlist_control = "ctl00$ContentPlaceHolder1$ddlUserRegisteredCards"
 
         self.br.open(url)
         self.br.select_form(nr=0)
-        self.br.find_control(cardlist_control).value = [str(card_id)]
+
+        self.br.set_all_readonly(False)
+        self.br["__EVENTTARGET"] = self.card_selection_event_target
+        self.br[self.card_selection_event_target] = [card_id]
         self.br.submit()
 
         # Get print view which includes all journeys instead of clicking through list
         self.br.select_form(nr=0)
-        #br.set_all_readonly(False)
-        #br.find_control("ctl00$ContentPlaceHolder1$btnCancel").disabled = True
-        #br.find_control("ctl00$ucSiteSearch$btnSearch").disabled = True
-        self.br.submit(name='ctl00$ContentPlaceHolder1$btn_Print')
+        self.br.submit(name="ctl00$ctl00$ContentPlaceHolder1$TabContainer2$MyCardsTabPanel$ContentPlaceHolder1$btn_Print")
 
         # Extract print data (contained in js print script)
         pattern = r'printWin.document.write\("(.*)"\);printWin.document.close'
+        match = None
         match = re.search(pattern, self.br.response().read())
         if not match:
-            raise ValueError
+            raise ParseError("Could not extract journey print data.")
         soup = BeautifulSoup(match.group(1))
 
-        # Parse journeys
-        purse_id = "ContentPlaceHolder1_CardJourneyTabContainer_PurseTransactionTabPanel_gvCardJourney"
-        table = soup.find(id=purse_id)
-        journeys = []
-        #rows = []
-        #for bgcolor in ('#EDEDED', '#F2F1F1'):
-        #	rows += table.find_all('tr', {'bgcolor': bgcolor})
-        for row in table.find_all('tr')[1:]:
-            cols = row.find_all('td')
-            time = cols[0].string.strip() + " " + cols[1].string.strip()
-            journeys.append({
-                'timestamp': datetime.datetime.strptime(time,
-                    '%d/%m/%Y %I:%M %p').strftime('%s'),
-                'source': cols[2].string.strip(),
-                'type': cols[3].string.strip(),
-                'amount': cols[4].string.strip(),
-                'balance': cols[5].string.strip(),
-            })
-        return journeys
+        return self._journey_list(soup)
 
     def _card_overview(self, soup):
         """
@@ -175,3 +162,22 @@ class Account(object):
         card_overview = dict(zip(overview_keys, overview_vals))
 
         return card_overview
+
+    def _journey_list(self, soup):
+        """
+        Return a list of journey dicts.
+        """
+        table = soup.find(id='gvCardJourney')
+        journeys = []
+        for row in table.find_all('tr')[1:]:
+            cols = row.find_all('td')
+            time = cols[0].string.strip() + " " + cols[1].string.strip()
+            journeys.append({
+                'timestamp': datetime.datetime.strptime(time,
+                    '%d/%m/%Y %I:%M %p').strftime('%s'),
+                'source': cols[2].string.strip(),
+                'type': cols[3].string.strip(),
+                'amount': cols[4].string.strip(),
+                'balance': cols[5].string.strip(),
+            })
+        return journeys
