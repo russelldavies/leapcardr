@@ -21,11 +21,11 @@ def login_required(func):
     Decorator to ensure object instance is authenticated before
     function is called.
     """
-    def wrapped(self):
+    def wrapper(self, *args, **kwargs):
         if not self.logged_in:
             self.login()
-        return func(self)
-    return wrapped
+        return func(self, *args, **kwargs)
+    return wrapper
 
 
 class Account(object):
