@@ -1,7 +1,8 @@
 import mechanize
 import cookielib
 from bs4 import BeautifulSoup
-from datetime import datetime
+import datetime
+import time
 import re
 
 BASE_URL = "https://www.leapcard.ie"
@@ -21,19 +22,18 @@ def login_required(func):
     function is called.
     """
     def wrapped(self):
-        if not self.logged_in and self.login():
-            return func(self)
-        else:
-            raise LoginError('Could not login')
+        if not self.logged_in:
+            self.login()
         return func(self)
     return wrapped
 
 
 class Account(object):
+    login_cookie_name = '.ASPXFORMSAUTH'
+
     def __init__(self, username=None, password=None):
         self.username = username
         self.password = password
-        self.logged_in = False
 
         self.br = mechanize.Browser(factory=mechanize.RobustFactory())
         self.cj = cookielib.CookieJar()
@@ -62,14 +62,31 @@ class Account(object):
         self.br.submit(name="ctl00$ContentPlaceHolder1$btnlogin")
 
         # Upon successful login, this cookie should be set
-        auth_cookie_name = '.ASPXFORMSAUTH'
-        if auth_cookie_name in [c.name for c in self.cj]:
+        login_cookie = None
+        for cookie in self.cj:
+            if cookie.name == self.login_cookie_name:
+                login_cookie = cookie
+                break
+
+        if login_cookie:
             # Get account holder name
             soup = BeautifulSoup(self.br.response().read())
-            self.logged_in = True
             self.name = soup.find(id="LoginName1").string
 
-        return self.logged_in
+            login_cookie.discard = True
+            future = datetime.datetime.now() + datetime.timedelta(minutes=20)
+            unix_time = int(time.mktime(future.timetuple()))
+            login_cookie.expires = unix_time
+            return True
+        else:
+            raise LoginError('Could not login.')
+
+    @property
+    def logged_in(self):
+        for cookie in self.cj:
+            if cookie.name == self.login_cookie_name and not cookie.is_expired():
+                return True
+        return False
 
     @login_required
     def list_cards(self):
@@ -137,7 +154,7 @@ class Account(object):
             cols = row.find_all('td')
             time = cols[0].string.strip() + " " + cols[1].string.strip()
             journeys.append({
-                'timestamp': datetime.strptime(time,
+                'timestamp': datetime.datetime.strptime(time,
                     '%d/%m/%Y %I:%M %p').strftime('%s'),
                 'source': cols[2].string.strip(),
                 'type': cols[3].string.strip(),
