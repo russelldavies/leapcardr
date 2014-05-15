@@ -6,12 +6,36 @@ import re
 
 BASE_URL = "https://www.leapcard.ie"
 
+
+class Error(Exception):
+    """Base class for exceptions in this module."""
+    pass
+
+class LoginError(Error):
+    pass
+
+
+def login_required(func):
+    """
+    Decorator to ensure object instance is authenticated before
+    function is called.
+    """
+    def wrapped(self):
+        if not self.logged_in and self.login():
+            return func(self)
+        else:
+            raise LoginError('Could not login')
+        return func(self)
+    return wrapped
+
+
 class Account(object):
-    def __init__(self, username, password):
+    def __init__(self, username=None, password=None):
         self.username = username
         self.password = password
+        self.logged_in = False
 
-        self.br = mechanize.Browser()
+        self.br = mechanize.Browser(factory=mechanize.RobustFactory())
         self.cj = cookielib.CookieJar()
         self.br.set_cookiejar(self.cj)
         # Browser options
@@ -30,21 +54,24 @@ class Account(object):
         """
         Login and set name if successful.
         """
-        self.br.open(BASE_URL)
+        url = BASE_URL + '/en/Login.aspx'
+        self.br.open(url)
         self.br.select_form(nr=0)
-        self.br.form["ctl00$ContentPlaceHolder1$login_View$UserName"] = self.username
-        self.br.form["ctl00$ContentPlaceHolder1$login_View$Password"] = self.password
-        self.br.submit(name="ctl00$ContentPlaceHolder1$login_View$btnlogin")
+        self.br.form["ctl00$ContentPlaceHolder1$UserName"] = self.username
+        self.br.form["ctl00$ContentPlaceHolder1$Password"] = self.password
+        self.br.submit(name="ctl00$ContentPlaceHolder1$btnlogin")
 
         # Upon successful login, this cookie should be set
         auth_cookie_name = '.ASPXFORMSAUTH'
         if auth_cookie_name in [c.name for c in self.cj]:
             # Get account holder name
             soup = BeautifulSoup(self.br.response().read())
+            self.logged_in = True
             self.name = soup.find(id="LoginName1").string
 
-            return True
+        return self.logged_in
 
+    @login_required
     def list_cards(self):
         """
         Returns the cards a user has registered in a dict in 
