@@ -1,0 +1,10 @@
+{% extends "layout.html" %}
+{% block body %}
+<ul class=journeys>
+    {% for journey in journeys %}
+    <li><h2>{{ journey.balance }}</h2>
+    {% else %}
+    <li><em>No journeys here so far</em>
+    {% endfor %}
+</ul>
+{% endblock %}

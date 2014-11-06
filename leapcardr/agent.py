@@ -1,7 +1,11 @@
+"""
+Agent that logs into the Leapcard website and scrapes data.
+"""
 from __future__ import unicode_literals
+from functools import wraps
 
 import mechanize
-import cookielib
+from cookielib import CookieJar
 from bs4 import BeautifulSoup
 import datetime
 import time
@@ -14,9 +18,6 @@ class Error(Exception):
     """Base class for exceptions in this module."""
     pass
 
-class LoginError(Error):
-    pass
-
 class ParseError(Error):
     pass
 
@@ -26,6 +27,7 @@ def login_required(func):
     Decorator to ensure object instance is authenticated before
     function is called.
     """
+    @wraps(func)
     def wrapper(self, *args, **kwargs):
         if not self.logged_in:
             self.login()
@@ -37,12 +39,14 @@ class Account(object):
     login_cookie_name = '.ASPXFORMSAUTH'
     card_selection_event_target = 'ctl00$ctl00$ContentPlaceHolder1$TabContainer2$MyCardsTabPanel$ddlMyCardsList'
 
-    def __init__(self, username=None, password=None):
+    def __init__(self, username=None, password=None, cookies=[]):
         self.username = username
         self.password = password
 
+        self.cj = CookieJar()
+        [self.cj.set_cookie(c) for c in cookies]
+
         self.br = mechanize.Browser(factory=mechanize.RobustFactory())
-        self.cj = cookielib.CookieJar()
         self.br.set_cookiejar(self.cj)
         # Browser options
         self.br.set_handle_equiv(True)
@@ -85,7 +89,7 @@ class Account(object):
             login_cookie.expires = unix_time
             return True
         else:
-            raise LoginError('Could not login.')
+            return False
 
     @property
     def logged_in(self):

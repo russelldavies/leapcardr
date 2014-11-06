@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+<style>
+body {
+  background-color: #eee;
+  padding-bottom: 40px;
+}
+.jumbotron {
+  text-align: center;
+  background-color: transparent;
+}
+.form-login {
+  max-width: 330px;
+  margin: 0 auto;
+}
+.form-login .form-control {
+  position: relative;
+  height: auto;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  padding: 10px;
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container">
+  <div class="jumbotron">
+    <h1>Leapcardr <img height="180" src="{{ url_for('static', filename='images/frog.png') }}"</img></h1>
+    <p>Your Leap Card account in a mobile friendly way</p>
+  </div>
+
+
+  <form class="form-login" role="form" action={{ url_for('login') }} method="post">
+    {{ form.hidden_tag() }}
+
+    <h3>Log in <small>Enter your Leap Card account details</small></h3>
+    <p><small>Your account details are not stored in any way, promise!</small></p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{category}}">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    {{ form.username(class="form-control", placeholder="Username", required=True, autofocus=True) }}
+    {{ form.password(class="form-control", placeholder="Password", required=True) }}
+    <label class="checkbox">
+      <input type="checkbox" name="remember_me">Remember me
+    </label>
+
+    <button class="btn btn-lg btn-primary btn-block" type="submit">Log in</button>
+  </form>
+</div> <!-- /container -->
+{% endblock %}
