@@ -42,6 +42,7 @@ class Account(object):
     def __init__(self, username=None, password=None, cookies=[]):
         self.username = username
         self.password = password
+        self.journeys = {}
 
         self.cj = CookieJar()
         [self.cj.set_cookie(c) for c in cookies]
@@ -98,8 +99,14 @@ class Account(object):
                 return True
         return False
 
+    @property
+    def cards(self):
+        if not hasattr(self, '_cards'):
+            self._cards = self._fetch_cards()
+        return self._cards
+
     @login_required
-    def list_cards(self):
+    def _fetch_cards(self):
         """
         Return the cards a user has registered as a dict in
         the form {card_id: {card details}}.
@@ -127,8 +134,13 @@ class Account(object):
         return cards
 
     @login_required
-    def card_history(self, card_id):
-        """Returns a list of all the journeys for a specific card."""
+    def card_journeys(self, card_id):
+        """
+        Returns a list of all the journeys for a specific card.
+        """
+        journeys = self.journeys.get(card_id, [])
+        if journeys:
+            return journeys
 
         url = BASE_URL + "/en/SelfServices/CardServices/ViewJourneyHistory.aspx"
 
@@ -152,7 +164,10 @@ class Account(object):
             raise ParseError("Could not extract journey print data.")
         soup = BeautifulSoup(match.group(1))
 
-        return self._journey_list(soup)
+        journeys = self._journey_list(soup)
+        self.journeys[card_id] = journeys
+
+        return journeys
 
     def _card_overview(self, soup):
         """
