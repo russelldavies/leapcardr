@@ -138,6 +138,8 @@ class Account(object):
         """
         Returns a list of all the journeys for a specific card.
         """
+        card_id = str(card_id)
+
         journeys = self.journeys.get(card_id, [])
         if journeys:
             return journeys
@@ -179,6 +181,7 @@ class Account(object):
         overview_keys = ('number', 'label', 'type', 'status', 'credit_status',
                 'auto_topup', 'init_date', 'expiry_date', 'balance')
         card_overview = dict(zip(overview_keys, overview_vals))
+        card_overview['balance'] = float(card_overview['balance'])
 
         return card_overview
 
@@ -192,8 +195,8 @@ class Account(object):
             cols = row.find_all('td')
             time = cols[0].string.strip() + " " + cols[1].string.strip()
             journeys.append({
-                'timestamp': datetime.datetime.strptime(time,
-                    '%d/%m/%Y %I:%M %p').strftime('%s'),
+                'datetime': datetime.datetime.strptime(time,
+                    '%d/%m/%Y %I:%M %p'),
                 'source': cols[2].string.strip(),
                 'type': cols[3].string.strip(),
                 'amount': cols[4].string.strip(),

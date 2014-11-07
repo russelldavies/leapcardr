@@ -26,8 +26,7 @@
     </div>
     <div id="navbar" class="navbar-collapse collapse">
       <ul class="nav navbar-nav">
-        <li><a href="{{ url_for('overview') }}">Overview</a></li>
-        <li class="active"><a href="#">Journeys</a></li>
+        <li class="active"><a href="{{ url_for('overview') }}">Overview</a></li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
         <li><a href="https://github.com/russelldavies/leapcardr">About</a></li>
@@ -39,34 +38,25 @@
 
 <div class="container">
 
-  {% if journeys %}
-  <div class="table-responsive">
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Amount</th>
-          <th>Balance</th>
-          <th>Source</th>
-          <th>Type</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for journey in journeys %}
-        <tr>
-          <td>{{ journey.datetime }}</td>
-          <td>{{ journey.amount }}</td>
-          <td>{{ journey.balance }}</td>
-          <td>{{ journey.source }}</td>
-          <td>{{ journey.type }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  {% for card_id, card in cards.iteritems() %}
+  <div class="panel panel-{% if card.status == 'Unblocked' or card.balance > 0 %}primary{% else %}danger{% endif %}">
+    <!-- Default panel contents -->
+    <div class="panel-heading">Card {{ card.number }} {% if card.label != ''
+      %}({{ card.label }}){% endif %}</div>
+    <div class="panel-body">
+      <p><strong>Balance:</strong> €{{ card.balance }}</p>
+      <p><strong>Status:</strong> {{ card.credit_status }}</p>
+      <p><a class="btn btn btn-primary" href="{{ url_for('journeys', card_id=card_id) }}" role="button">Journey History &raquo;</a></p>
+    </div>
+    <!-- List group -->
+    <ul class="list-group">
+      <li class="list-group-item"><strong>Type:</strong> {{ card.type }}</li>
+      <li class="list-group-item"><strong>Auto Topup:</strong> {{ card.auto_topup }}</li>
+      <li class="list-group-item"><strong>Initialised:</strong> {{ card.init_date }}</li>
+      <li class="list-group-item"><strong>Expires:</strong> {{ card.expiry_date }}</li>
+    </ul>
   </div>
-  {% else %}
-  <p>No journeys so far.</p>
-  {% endif %}
+  {% endfor %}
 
 </div> <!-- /container -->
 {% endblock body %}

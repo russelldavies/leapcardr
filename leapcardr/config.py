@@ -1,2 +1,4 @@
 # -*- coding: utf-8 -*-
-SECRET_KEY = 'something super secret that is changed'
+import os
+
+SECRET_KEY = os.environ.get('SECRET_KEY', 'change on deploy')
